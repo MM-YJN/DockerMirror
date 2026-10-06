@@ -1,0 +1,16 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>ade219d4-055e-45b8-a8a3-c4e2fb163379</UserSecretsId>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DockerMirror\DockerMirror.csproj" />
+  </ItemGroup>
+
+</Project>

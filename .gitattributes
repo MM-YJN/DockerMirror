@@ -1,0 +1,14 @@
+# Declare files that will always have LF line endings on checkout
+* text=auto
+
+# Force bash scripts to always use lf line endings so that if a repo is accessed
+# in Unix via a file share from Windows, the scripts will work.
+*.sh text eol=lf
+*.crt text eol=lf
+
+# Likewise, force cmd and batch scripts to always use crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+*.cs text eol=crlf diff=csharp
+*.razor text eol=crlf

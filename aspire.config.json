@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "source/DockerMirror.AppHost/DockerMirror.AppHost.csproj"
+  }
+}

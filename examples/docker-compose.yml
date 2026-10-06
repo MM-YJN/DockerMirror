@@ -1,0 +1,36 @@
+services:
+  dockermirror:
+    image: ghcr.io/mm-yjn/dockermirror:latest
+    ports:
+      - "8081:8080"
+    environment:
+      Mirror__Cache__Enabled: "true"
+      Mirror__Cache__Eviction__Enabled: "true"
+      Mirror__Cache__Eviction__Strategy: "Lru"
+      Mirror__Cache__Eviction__MaxSizeBytes: "10737418240"
+      Mirror__Cache__FileSystem__Directory: "/home/app"
+      # Uncomment to authenticate with an upstream registry that requires credentials
+      # Mirror__Upstream__Auth__Username: "your-username"
+      # Mirror__Upstream__Auth__Password: "your-password"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
+    volumes:
+      - mirror-data:/home/app
+    networks:
+      - mirror
+
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - lgtm-data:/data
+    networks:
+      - mirror
+
+volumes:
+  mirror-data:
+  lgtm-data:
+
+networks:
+  mirror:
+    driver: bridge

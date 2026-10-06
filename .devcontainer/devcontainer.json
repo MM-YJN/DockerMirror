@@ -1,0 +1,50 @@
+{
+  "name": "C# (.NET)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2.7.0": {
+      "installZsh": "true",
+      "username": "vscode",
+      "upgradePackages": "true",
+      "userUid": "1000",
+      "userGid": "1000"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:4.1.2": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/node:2.1.0": {},
+    "ghcr.io/devcontainers/features/powershell:2.0.3": {}
+  },
+  "overrideFeatureInstallOrder": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ],
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "remoteEnv": {
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  },
+  "onCreateCommand": "bash .devcontainer/scripts/on-create-commands.sh",
+  "postCreateCommand": "bash .devcontainer/scripts/post-create-commands.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "editorconfig.editorconfig",
+        "ms-dotnettools.csdevkit",
+        "microsoft-aspire.aspire-vscode"
+      ]
+    }
+  },
+  "mounts": [
+    {
+      "source": "${devcontainerId}-dotnet-usersecrets",
+      "target": "/dc/dotnet-usersecrets",
+      "type": "volume"
+    }
+  ],
+  "remoteUser": "vscode"
+}

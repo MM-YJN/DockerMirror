@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/source/">
+    <Project Path="source/DockerMirror/DockerMirror.csproj" />
+    <Project Path="source/DockerMirror.AppHost/DockerMirror.AppHost.csproj" Id="ade219d4-055e-45b8-a8a3-c4e2fb163379" />
+    <Project Path="source/DockerMirror.ServiceDefaults/DockerMirror.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DockerMirror.UnitTests/DockerMirror.UnitTests.csproj" />
+    <Project Path="tests/DockerMirror.IntegrationTests/DockerMirror.IntegrationTests.csproj" />
+    <Project Path="tests/DockerMirror.TestKit/DockerMirror.TestKit.csproj" />
+    <Project Path="tests/DockerMirror.E2ETests/DockerMirror.E2ETests.csproj" />
+  </Folder>
+</Solution>

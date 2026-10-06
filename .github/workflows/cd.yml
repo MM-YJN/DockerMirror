@@ -1,0 +1,131 @@
+name: CD
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+
+    - name: Install Native AOT and cross-compilation dependencies
+      run: |
+        sudo dpkg --add-architecture arm64
+        sudo dpkg --add-architecture armhf
+        sudo sed -i -e 's/Types: deb/Types: deb\nArchitectures: amd64/g' /etc/apt/sources.list.d/ubuntu.sources
+        sudo tee /etc/apt/sources.list.d/ports.sources <<'EOF'
+        Types: deb
+        URIs: http://ports.ubuntu.com/ubuntu-ports/
+        Suites: noble noble-updates
+        Components: main restricted
+        Architectures: arm64 armhf
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        Enabled: yes
+
+        Types: deb
+        URIs: http://ports.ubuntu.com/ubuntu-ports/
+        Suites: noble-backports
+        Components: main restricted universe multiverse
+        Architectures: arm64 armhf
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        Enabled: yes
+        EOF
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          binutils-aarch64-linux-gnu \
+          binutils-arm-linux-gnueabihf \
+          gcc-aarch64-linux-gnu \
+          gcc-arm-linux-gnueabihf \
+          zlib1g-dev:arm64 \
+          zlib1g-dev:armhf \
+          zlib1g-dev \
+          clang \
+          llvm
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
+
+    - name: Restore dotnet tools
+      run: dotnet tool restore
+
+    - name: Restore dependencies
+      run: dotnet restore --locked-mode
+
+    - name: Get version
+      id: version
+      run: echo "value=$(dotnet nbgv get-version -v SimpleVersion)" >> $GITHUB_OUTPUT
+
+    - name: Compute container tags
+      id: tags
+      run: |
+        REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+        echo "repo=${REPO_LOWER}" >> $GITHUB_OUTPUT
+        echo "version=${{ steps.version.outputs.value }}" >> $GITHUB_OUTPUT
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "latest=true" >> $GITHUB_OUTPUT
+        else
+          echo "latest=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Login to GitHub Container Registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Publish container (x64)
+      env:
+        ContainerImageTags: ${{ steps.tags.outputs.version }}-x64
+      run: |
+        dotnet publish source/DockerMirror/DockerMirror.csproj \
+          /t:PublishContainer \
+          --os linux \
+          --arch x64 \
+          -p:ContainerRepository="${{ steps.tags.outputs.repo }}" \
+          -p:ContainerRegistry="ghcr.io"
+
+    - name: Publish container (arm64)
+      env:
+        ContainerImageTags: ${{ steps.tags.outputs.version }}-arm64
+      run: |
+        dotnet publish source/DockerMirror/DockerMirror.csproj \
+          /t:PublishContainer \
+          --os linux \
+          --arch arm64 \
+          -p:ContainerRepository="${{ steps.tags.outputs.repo }}" \
+          -p:ContainerRegistry="ghcr.io"
+
+    - name: Create and push multi-arch manifests
+      env:
+        REPO: ${{ steps.tags.outputs.repo }}
+        VERSION: ${{ steps.tags.outputs.version }}
+        LATEST: ${{ steps.tags.outputs.latest }}
+      run: |
+        push_manifest() {
+          local tag="$1"
+          docker manifest create "ghcr.io/${REPO}:${tag}" \
+            --amend "ghcr.io/${REPO}:${VERSION}-x64" \
+            --amend "ghcr.io/${REPO}:${VERSION}-arm64"
+          docker manifest annotate "ghcr.io/${REPO}:${tag}" "ghcr.io/${REPO}:${VERSION}-x64" --os linux --arch amd64
+          docker manifest annotate "ghcr.io/${REPO}:${tag}" "ghcr.io/${REPO}:${VERSION}-arm64" --os linux --arch arm64
+          docker manifest push "ghcr.io/${REPO}:${tag}"
+        }
+        push_manifest "${VERSION}"
+        if [[ "${LATEST}" == "true" ]]; then
+          push_manifest latest
+        fi
+
+    - name: Logout from GitHub Container Registry
+      if: always()
+      run: docker logout ghcr.io

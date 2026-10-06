@@ -1,0 +1,74 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
+
+    - name: Restore dotnet tools
+      run: dotnet tool restore
+    - name: Restore dependencies
+      run: dotnet restore --locked-mode
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Verify formatting
+      run: dotnet format DockerMirror.slnx --verify-no-changes --no-restore
+    - name: Test (unit + integration)
+      # The solution also contains the E2E project. Excluding Category=E2E leaves
+      # that test module with zero tests, which MTP reports as exit code 8 on the
+      # .NET 10 SDK. Ignore that code (the separate e2e job runs those tests), but
+      # still require the run as a whole to discover at least one test.
+      run: dotnet test --no-build --results-directory "$RUNNER_TEMP/test_results" --filter-not-trait "Category=E2E" --ignore-exit-code 8 --minimum-expected-tests 1 --coverlet --coverlet-output-format cobertura --coverlet-include "[DockerMirror]*,[DockerMirror.*]*" --coverlet-exclude-by-file "**/*.g.cs,**/*.Generated.cs"
+    - name: Publish code coverage
+      run: dotnet reportgenerator "-reports:$RUNNER_TEMP/test_results/coverage.cobertura.*.xml" "-targetdir:$RUNNER_TEMP/test_results/coverage-report" "-assemblyfilters:+DockerMirror" -reporttypes:MarkdownSummary && cat $RUNNER_TEMP/test_results/coverage-report/Summary.md >> $GITHUB_STEP_SUMMARY
+
+  e2e:
+    # E2E tests start privileged Docker-in-Docker containers and pull images from
+    # Docker Hub, so they run only on main and manual dispatches, not on PRs.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
+
+    - name: Restore dotnet tools
+      run: dotnet tool restore
+    - name: Restore dependencies
+      run: dotnet restore --locked-mode
+    - name: Build
+      run: dotnet build --no-restore
+    - name: E2E tests
+      run: dotnet test tests/DockerMirror.E2ETests/DockerMirror.E2ETests.csproj --no-build --filter-trait "Category=E2E"
